@@ -26,7 +26,8 @@ function createCustomSelect({ wrap, trigger, text, menu }) {
     setOptions(list) {
       menu.innerHTML = '';
       const frag = document.createDocumentFragment();
-      for (const [value, label] of list) {
+      for (const item of list) {
+        const [value, label] = typeof item === 'string' ? [item, item] : item;
         const li = document.createElement('li');
         li.className = 'cs-item';
         li.textContent = label;
@@ -113,8 +114,9 @@ const providerCS = createCustomSelect({
   menu: document.getElementById('providerMenu'),
 });
 providerCS._onchange = (v) => {
+  state.provider = v;
   baseUrlEdited = false;
-  applyProvider(v);
+  loadProviderIntoUI(v);
   persistAll();
   scheduleAutoFetch();
 };
