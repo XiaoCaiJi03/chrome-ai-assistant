@@ -276,4 +276,36 @@ if (typeof globalThis !== 'undefined') {
   globalThis.fetchProviderModels = fetchProviderModels;
   globalThis.joinUrl = joinUrl;
   globalThis.buildAuthHeaders = buildAuthHeaders;
+  globalThis.resolveProviderConfig = resolveProviderConfig;
+  globalThis.migrateLegacySettings = migrateLegacySettings;
+}
+
+function resolveProviderConfig(settings, provider) {
+  const cfg = AI_PROVIDERS[provider] || {};
+  return {
+    apiKey: (settings.apiKeys && settings.apiKeys[provider]) || '',
+    model: (settings.models && settings.models[provider]) || cfg.defaultModel || '',
+    customBaseUrl: (settings.customBaseUrls && settings.customBaseUrls[provider]) || cfg.baseUrl || '',
+  };
+}
+
+function migrateLegacySettings(settings) {
+  const provider = settings.provider in (AI_PROVIDERS || {}) ? settings.provider : 'openai';
+  const out = {
+    provider,
+    apiKeys: { ...(settings.apiKeys || {}) },
+    models: { ...(settings.models || {}) },
+    customBaseUrls: { ...(settings.customBaseUrls || {}) },
+    customPrompt: settings.customPrompt || '',
+  };
+  if (settings.apiKey && !out.apiKeys[provider]) {
+    out.apiKeys[provider] = settings.apiKey;
+  }
+  if (settings.model && !out.models[provider]) {
+    out.models[provider] = settings.model;
+  }
+  if (settings.customBaseUrl && !out.customBaseUrls[provider]) {
+    out.customBaseUrls[provider] = settings.customBaseUrl;
+  }
+  return out;
 }

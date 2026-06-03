@@ -19,34 +19,48 @@ const els = {
 
 const STORAGE_DEFAULTS = {
   provider: 'openai',
+  apiKeys: {},
+  models: {},
+  customBaseUrls: {},
+  customPrompt: '',
   apiKey: '',
   model: '',
-  customPrompt: '',
   customBaseUrl: '',
+};
+
+const state = {
+  provider: 'openai',
+  apiKeys: {},
+  models: {},
+  customBaseUrls: {},
+  customPrompt: '',
 };
 
 let modelCache = {};
 let manualMode = false;
 let autoFetchTimer = null;
-let baseUrlEdited = false;
 
 (async function init() {
   populateProviders();
-  const [settings, cacheStore] = await Promise.all([
+  const [raw, cacheStore] = await Promise.all([
     chrome.storage.sync.get(STORAGE_DEFAULTS),
     chrome.storage.local.get({ modelCache: {} }),
   ]);
   modelCache = cacheStore.modelCache || {};
 
-  els.provider.value = settings.provider in AI_PROVIDERS ? settings.provider : 'openai';
-  els.apiKey.value = settings.apiKey;
-  els.customPrompt.value = settings.customPrompt;
-  if (settings.customBaseUrl) {
-    els.customBaseUrl.value = settings.customBaseUrl;
-    baseUrlEdited = true;
-  }
+  const migrated = migrateLegacySettings(raw);
+  Object.assign(state, migrated);
 
-  applyProvider(els.provider.value, settings.model);
+  if (!(state.provider in AI_PROVIDERS)) state.provider = 'openai';
+  els.provider.value = state.provider;
+  els.customPrompt.value = state.customPrompt;
+
+  loadProviderIntoUI(state.provider);
+
+  if (raw.apiKey || raw.model || raw.customBaseUrl) {
+    await chrome.storage.sync.remove(['apiKey', 'model', 'customBaseUrl']);
+    await persistAll();
+  }
 })();
 
 function populateProviders() {
@@ -59,12 +73,14 @@ function populateProviders() {
   }
 }
 
-function applyProvider(providerKey, preferredModel) {
+function loadProviderIntoUI(providerKey) {
   const cfg = AI_PROVIDERS[providerKey];
   if (!cfg) return;
+  const conf = resolveProviderConfig(state, providerKey);
 
   els.apiKeyLabel.textContent = cfg.apiKeyLabel;
   els.apiKey.placeholder = cfg.apiKeyPlaceholder;
+  els.apiKey.value = conf.apiKey;
 
   if (cfg.apiKeyUrl) {
     els.apiKeyHelp.href = cfg.apiKeyUrl;
@@ -73,9 +89,7 @@ function applyProvider(providerKey, preferredModel) {
     els.apiKeyHelp.style.display = 'none';
   }
 
-  if (!baseUrlEdited || !els.customBaseUrl.value.trim()) {
-    els.customBaseUrl.value = cfg.baseUrl;
-  }
+  els.customBaseUrl.value = conf.customBaseUrl || cfg.baseUrl;
   els.customBaseUrl.placeholder = cfg.baseUrl || '请输入 baseUrl';
   els.baseUrlMeta.textContent = cfg.requireBaseUrl
     ? '⚠️ 请填写完整 baseUrl'
@@ -83,7 +97,7 @@ function applyProvider(providerKey, preferredModel) {
 
   const cached = modelCache[providerKey];
   const list = cached?.models?.length ? cached.models : (cfg.defaultModels || []);
-  renderModels(list, preferredModel || cfg.defaultModel);
+  renderModels(list, conf.model || cfg.defaultModel);
 
   if (cached?.fetchedAt) {
     els.modelMeta.textContent = '已加载 ' + cached.models.length + ' 个模型 · ' + new Date(cached.fetchedAt).toLocaleString();
@@ -94,6 +108,38 @@ function applyProvider(providerKey, preferredModel) {
   }
 
   els.fetchBtn.disabled = !cfg.modelsPath;
+  if (manualMode) setManualMode(false);
+}
+
+function captureUIIntoState() {
+  const provider = state.provider;
+  const apiKey = els.apiKey.value.trim();
+  const model = getCurrentModel();
+  const customBaseUrl = els.customBaseUrl.value.trim();
+
+  if (apiKey) state.apiKeys[provider] = apiKey;
+  else delete state.apiKeys[provider];
+
+  if (model) state.models[provider] = model;
+
+  if (customBaseUrl && customBaseUrl !== AI_PROVIDERS[provider]?.baseUrl) {
+    state.customBaseUrls[provider] = customBaseUrl;
+  } else {
+    delete state.customBaseUrls[provider];
+  }
+
+  state.customPrompt = els.customPrompt.value.trim();
+}
+
+async function persistAll() {
+  captureUIIntoState();
+  await chrome.storage.sync.set({
+    provider: state.provider,
+    apiKeys: state.apiKeys,
+    models: state.models,
+    customBaseUrls: state.customBaseUrls,
+    customPrompt: state.customPrompt,
+  });
 }
 
 function renderModels(models, selected) {
@@ -108,9 +154,7 @@ function renderModels(models, selected) {
 
   const target = selected && models.includes(selected) ? selected : (models[0] || '');
   els.modelSelect.value = target;
-  if (manualMode) {
-    els.modelInput.value = target;
-  }
+  if (manualMode) els.modelInput.value = target;
 }
 
 function getCurrentModel() {
@@ -144,62 +188,60 @@ function setManualMode(on) {
     els.modelToggleBtn.title = '切换到手动输入';
     els.modelToggleBtn.classList.remove('active');
   }
-  persistField('model', getCurrentModel());
+  persistAll();
 }
 
-async function persistField(key, value) {
-  try {
-    await chrome.storage.sync.set({ [key]: value });
-  } catch (e) {
-    console.warn('persist failed', key, e);
-  }
-}
-
-els.provider.addEventListener('change', () => {
-  baseUrlEdited = false;
-  applyProvider(els.provider.value);
-  persistField('provider', els.provider.value);
-  persistField('customBaseUrl', els.customBaseUrl.value.trim());
-  persistField('model', getCurrentModel());
+els.provider.addEventListener('change', async () => {
+  captureUIIntoState();
+  state.provider = els.provider.value;
+  loadProviderIntoUI(state.provider);
+  await persistAll();
   scheduleAutoFetch();
 });
 
-els.customBaseUrl.addEventListener('input', () => {
-  baseUrlEdited = true;
-  scheduleAutoFetch();
-});
-els.customBaseUrl.addEventListener('blur', () => {
-  persistField('customBaseUrl', els.customBaseUrl.value.trim());
-});
+els.customBaseUrl.addEventListener('blur', () => persistAll());
+els.customBaseUrl.addEventListener('input', () => scheduleAutoFetch());
 
-els.resetBaseUrl.addEventListener('click', (e) => {
+els.resetBaseUrl.addEventListener('click', async (e) => {
   e.preventDefault();
-  const cfg = AI_PROVIDERS[els.provider.value];
+  const cfg = AI_PROVIDERS[state.provider];
   els.customBaseUrl.value = cfg.baseUrl;
-  baseUrlEdited = false;
-  persistField('customBaseUrl', cfg.baseUrl);
+  await persistAll();
   scheduleAutoFetch();
 });
 
 els.apiKey.addEventListener('input', () => scheduleAutoFetch());
-els.apiKey.addEventListener('blur', () => persistField('apiKey', els.apiKey.value.trim()));
+els.apiKey.addEventListener('blur', () => persistAll());
 
-els.modelSelect.addEventListener('change', () => {
-  persistField('model', els.modelSelect.value);
-});
+els.modelSelect.addEventListener('change', () => persistAll());
 els.modelInput.addEventListener('input', () => {
-  if (manualMode) persistField('model', els.modelInput.value.trim());
+  if (manualMode) persistAll();
 });
+
+els.customPrompt.addEventListener('blur', () => persistAll());
 
 els.modelToggleBtn.addEventListener('click', () => setManualMode(!manualMode));
 
 els.fetchBtn.addEventListener('click', () => fetchModels(false));
 
-els.saveBtn.addEventListener('click', save);
+els.saveBtn.addEventListener('click', async () => {
+  const provider = state.provider;
+  const cfg = AI_PROVIDERS[provider];
+  const apiKey = els.apiKey.value.trim();
+  const model = getCurrentModel();
+  const customBaseUrl = els.customBaseUrl.value.trim();
+
+  if (!apiKey && !cfg.keyOptional) return showStatus('请输入 API Key', 'error');
+  if (!customBaseUrl) return showStatus('请输入 API 地址', 'error');
+  if (!model) return showStatus('请选择或输入模型 ID', 'error');
+
+  await persistAll();
+  showStatus('✅ 设置已保存（' + cfg.label + '）', 'success');
+});
 
 function scheduleAutoFetch() {
   clearTimeout(autoFetchTimer);
-  const cfg = AI_PROVIDERS[els.provider.value];
+  const cfg = AI_PROVIDERS[state.provider];
   if (!cfg?.modelsPath) return;
   const key = els.apiKey.value.trim();
   if (!key && !cfg.keyOptional) return;
@@ -208,7 +250,7 @@ function scheduleAutoFetch() {
 }
 
 async function fetchModels(silent) {
-  const provider = els.provider.value;
+  const provider = state.provider;
   const cfg = AI_PROVIDERS[provider];
   if (!cfg?.modelsPath) {
     if (!silent) showStatus(cfg.label + ' 不支持自动列模型', 'error');
@@ -247,49 +289,30 @@ async function fetchModels(silent) {
     }
     if (!models?.length) throw new Error('返回空列表');
 
+    if (state.provider !== provider) return;
+
     modelCache[provider] = { models, fetchedAt: Date.now() };
     await chrome.storage.local.set({ modelCache });
 
     const previous = getCurrentModel();
     renderModels(models, models.includes(previous) ? previous : (cfg.defaultModel || models[0]));
-    await persistField('model', getCurrentModel());
+    await persistAll();
 
     els.modelMeta.textContent = '已加载 ' + models.length + ' 个模型 · ' + new Date().toLocaleString();
     els.modelMeta.className = 'meta ok';
     showStatus('✅ 已获取 ' + models.length + ' 个模型，可在下拉框中选择', 'success');
   } catch (err) {
-    showStatus('❌ 获取失败：' + err.message, 'error');
-    els.modelMeta.textContent = '获取失败，可点击 ✏️ 手动输入模型 ID';
-    els.modelMeta.className = 'meta err';
+    if (state.provider === provider) {
+      showStatus('❌ 获取失败：' + err.message, 'error');
+      els.modelMeta.textContent = '获取失败，可点击 ✏️ 手动输入模型 ID';
+      els.modelMeta.className = 'meta err';
+    }
   } finally {
-    els.fetchBtn.disabled = !AI_PROVIDERS[provider]?.modelsPath;
-    els.fetchBtn.textContent = '🔄';
+    if (state.provider === provider) {
+      els.fetchBtn.disabled = !AI_PROVIDERS[provider]?.modelsPath;
+      els.fetchBtn.textContent = '🔄';
+    }
   }
-}
-
-async function save() {
-  const provider = els.provider.value;
-  const cfg = AI_PROVIDERS[provider];
-  const apiKey = els.apiKey.value.trim();
-  const model = getCurrentModel();
-  const customPrompt = els.customPrompt.value.trim();
-  const customBaseUrl = els.customBaseUrl.value.trim();
-
-  if (!apiKey && !cfg.keyOptional) {
-    showStatus('请输入 API Key', 'error');
-    return;
-  }
-  if (!customBaseUrl) {
-    showStatus('请输入 API 地址', 'error');
-    return;
-  }
-  if (!model) {
-    showStatus('请选择或输入模型 ID', 'error');
-    return;
-  }
-
-  await chrome.storage.sync.set({ provider, apiKey, model, customPrompt, customBaseUrl });
-  showStatus('✅ 设置已保存', 'success');
 }
 
 function showStatus(msg, type) {
@@ -298,6 +321,7 @@ function showStatus(msg, type) {
   if (type === 'success' || type === 'error') {
     setTimeout(() => {
       els.status.className = 'status';
+      els.status.textContent = '';
     }, 3500);
   }
 }

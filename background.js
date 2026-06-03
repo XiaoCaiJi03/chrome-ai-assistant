@@ -74,11 +74,14 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
   const settings = await chrome.storage.sync.get({
     provider: 'openai',
-    apiKey: '',
-    model: 'gpt-4o-mini',
+    apiKeys: {},
+    models: {},
+    customBaseUrls: {},
     temperature: 0.7,
     maxTokens: 2048,
     customPrompt: '',
+    apiKey: '',
+    model: '',
     customBaseUrl: '',
   });
 
@@ -87,20 +90,43 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     sendToTab(tab.id, { type: 'AI_ERROR', error: '未知供应商，请在扩展设置中重新选择' });
     return;
   }
-  if (!settings.apiKey && !cfg.keyOptional) {
-    sendToTab(tab.id, { type: 'AI_ERROR', error: '请先设置 API Key（点击扩展图标）' });
+
+  const migrated = migrateLegacySettings(settings);
+  const conf = resolveProviderConfig(migrated, migrated.provider);
+  const resolved = {
+    provider: migrated.provider,
+    apiKey: conf.apiKey,
+    model: conf.model,
+    customBaseUrl: conf.customBaseUrl,
+    temperature: settings.temperature,
+    maxTokens: settings.maxTokens,
+    customPrompt: settings.customPrompt,
+  };
+
+  if (!resolved.apiKey && !cfg.keyOptional) {
+    sendToTab(tab.id, {
+      type: 'AI_ERROR',
+      error: '请先为「' + cfg.label + '」设置 API Key（点击扩展图标）',
+    });
+    return;
+  }
+  if (!resolved.model) {
+    sendToTab(tab.id, {
+      type: 'AI_ERROR',
+      error: '请先为「' + cfg.label + '」选择模型（点击扩展图标）',
+    });
     return;
   }
 
   const systemPrompt =
     menuItemId === MENU_ACTIONS.CUSTOM
-      ? settings.customPrompt || '请处理以下内容：\n\n'
+      ? resolved.customPrompt || '请处理以下内容：\n\n'
       : SYSTEM_PROMPTS[menuItemId] || '请处理以下内容：\n\n';
 
   sendToTab(tab.id, { type: 'AI_LOADING' });
 
   try {
-    const result = await callAI(settings, systemPrompt + selectionText);
+    const result = await callAI(resolved, systemPrompt + selectionText);
     sendToTab(tab.id, { type: 'AI_RESULT', result, action: menuItemId });
   } catch (err) {
     sendToTab(tab.id, { type: 'AI_ERROR', error: err.message });
