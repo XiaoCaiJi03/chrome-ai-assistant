@@ -66,6 +66,17 @@
       align-items: stretch;
     }
     .row > select, .row > input { flex: 1; min-width: 0; }
+    #modelRow { position: relative; }
+    #modelInput {
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      right: calc(3 * 38px + 2 * 6px);
+      display: none;
+    }
+    #modelRow.manual #modelSelect { visibility: hidden; }
+    #modelRow.manual #modelInput { display: block; }
     .icon-btn {
       flex: 0 0 auto;
       min-width: 38px;
@@ -161,9 +172,9 @@
       <span>模型</span>
       <span id="modelCount" class="meta"></span>
     </label>
-    <div class="row">
+    <div class="row" id="modelRow">
       <select id="modelSelect"></select>
-      <input id="modelInput" placeholder="输入模型 ID" style="display:none">
+      <input id="modelInput" placeholder="输入模型 ID">
       <button class="icon-btn" id="modelToggleBtn" title="切换到手动输入">✏️</button>
       <button class="icon-btn" id="fetchBtn" title="从供应商拉取模型列表">🔄</button>
       <button class="icon-btn" id="verifyBtn" title="测试当前 Key + 模型是否可用">✓</button>

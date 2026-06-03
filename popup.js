@@ -192,11 +192,11 @@ function getCurrentModel() {
 }
 
 function setManualMode(on) {
+  if (manualMode === on) return;
   manualMode = on;
+  document.getElementById('modelRow').classList.toggle('manual', on);
   if (on) {
     els.modelInput.value = els.modelSelect.value;
-    els.modelSelect.style.display = 'none';
-    els.modelInput.style.display = '';
     els.modelToggleBtn.textContent = '📋';
     els.modelToggleBtn.title = '切换到下拉选择';
     els.modelToggleBtn.classList.add('active');
@@ -212,8 +212,6 @@ function setManualMode(on) {
       els.modelSelect.appendChild(opt);
       els.modelSelect.value = val;
     }
-    els.modelSelect.style.display = '';
-    els.modelInput.style.display = 'none';
     els.modelToggleBtn.textContent = '✏️';
     els.modelToggleBtn.title = '切换到手动输入';
     els.modelToggleBtn.classList.remove('active');
