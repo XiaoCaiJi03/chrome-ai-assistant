@@ -150,9 +150,10 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       model: p.model,
       customBaseUrl: p.customBaseUrl,
       temperature: 0,
-      maxTokens: 1,
+      maxTokens: 50,
+      verifyExtraBody: cfg.verifyExtraBody || null,
     };
-    callAI(resolved, 'ping')
+    callAI(resolved, 'pong')
       .then(() => sendResponse({ ok: true }))
       .catch((err) => sendResponse({ ok: false, error: err.message || String(err) }));
     return true;
@@ -199,6 +200,7 @@ async function callOpenAICompatible(url, settings, cfg, prompt) {
     temperature: settings.temperature,
     max_tokens: settings.maxTokens,
     max_completion_tokens: settings.maxTokens,
+    ...(settings.verifyExtraBody || {}),
   };
 
   const resp = await fetch(url, {

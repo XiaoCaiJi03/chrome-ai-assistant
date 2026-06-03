@@ -59,6 +59,7 @@ const AI_PROVIDERS = {
     protocol: 'openai',
     defaultModels: ['deepseek-v4-flash', 'deepseek-v4-pro'],
     defaultModel: 'deepseek-v4-flash',
+    verifyExtraBody: { thinking: { type: 'disabled' } },
   },
   minimax: {
     label: 'MiniMax (MiniMax)',
@@ -71,6 +72,7 @@ const AI_PROVIDERS = {
     protocol: 'openai',
     defaultModels: ['MiniMax-M3', 'MiniMax-M2.7', 'MiniMax-M2.5'],
     defaultModel: 'MiniMax-M3',
+    verifyExtraBody: { thinking: { type: 'disabled' } },
   },
   moonshot: {
     label: 'Moonshot (Kimi)',
@@ -83,6 +85,7 @@ const AI_PROVIDERS = {
     protocol: 'openai',
     defaultModels: ['kimi-k2-6', 'kimi-k2-0905-preview', 'moonshot-v1-128k', 'moonshot-v1-32k', 'moonshot-v1-8k'],
     defaultModel: 'kimi-k2-6',
+    verifyExtraBody: { thinking: { type: 'disabled' } },
   },
   zhipu: {
     label: '智谱 GLM',
