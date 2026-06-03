@@ -274,10 +274,6 @@
       <span id="buildId" class="meta"></span>
     </div>
 
-    <script>
-      // Visible build tag to disambiguate stale error panels
-      document.getElementById('buildId').textContent = 'build: ' + (new Date(document.lastModified).toISOString().slice(0, 16).replace('T', ' '));
-    </script>
     <script src="providers.js"></script>
     <script src="popup.js"></script>
 </body>

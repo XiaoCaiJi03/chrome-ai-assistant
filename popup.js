@@ -21,6 +21,12 @@ const els = {
   status: document.getElementById('status'),
 };
 
+(function stampBuildId() {
+  const el = document.getElementById('buildId');
+  if (!el) return;
+  el.textContent = 'build: ' + (new Date(document.lastModified).toISOString().slice(0, 16).replace('T', ' '));
+})();
+
 window.addEventListener('error', (e) => {
   if (els && els.status) {
     els.status.textContent = '❌ ' + (e.error?.message || e.message);
