@@ -34,6 +34,7 @@
       color: #89b4fa;
       text-decoration: none;
       font-size: 11px;
+      cursor: pointer;
     }
     label a:hover { text-decoration: underline; }
     input, select, textarea {
@@ -47,19 +48,27 @@
       outline: none;
       font-family: inherit;
     }
+    select {
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2 4l4 4 4-4' stroke='%23cdd6f4' stroke-width='1.5' fill='none'/></svg>");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      padding-right: 30px;
+    }
     input:focus, select:focus, textarea:focus {
       border-color: #cba6f7;
     }
     textarea { resize: vertical; min-height: 60px; }
     .row {
       display: flex;
-      gap: 8px;
+      gap: 6px;
       align-items: stretch;
     }
-    .row input { flex: 1; }
+    .row > select, .row > input { flex: 1; min-width: 0; }
     .icon-btn {
       flex: 0 0 auto;
-      padding: 0 12px;
+      padding: 0 10px;
       border: 1px solid #45475a;
       border-radius: 6px;
       background: #313244;
@@ -70,12 +79,7 @@
     }
     .icon-btn:hover:not(:disabled) { background: #45475a; border-color: #cba6f7; }
     .icon-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    .icon-btn.spin::before {
-      content: '⏳';
-      display: inline-block;
-      animation: spin 1s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
+    .icon-btn.active { background: #cba6f7; color: #1e1e2e; border-color: #cba6f7; }
     .status {
       padding: 8px 12px;
       border-radius: 6px;
@@ -106,12 +110,13 @@
       text-align: center;
       line-height: 1.5;
     }
-    .hint a { color: #89b4fa; text-decoration: none; }
     .meta {
       font-size: 11px;
       color: #6c7086;
       margin-top: 4px;
     }
+    .meta.ok { color: #a6e3a1; }
+    .meta.err { color: #f38ba8; }
   </style>
 </head>
 <body>
@@ -127,30 +132,31 @@
   <div class="field">
     <label>
       <span>API 地址</span>
-      <a href="#" id="resetBaseUrl">恢复默认</a>
+      <a id="resetBaseUrl">恢复默认</a>
     </label>
-    <input type="url" id="customBaseUrl" placeholder="https://api.example.com/v1" autocomplete="off">
-    <div class="meta" id="baseUrlMeta">将自动拼接 /chat/completions 与 /models</div>
+    <input type="url" id="customBaseUrl" placeholder="https://api.example.com/v1">
+    <div class="meta" id="baseUrlMeta"></div>
   </div>
 
   <div class="field">
     <label>
       <span id="apiKeyLabel">API Key</span>
-      <a href="#" id="apiKeyHelp" target="_blank" rel="noopener">获取 →</a>
+      <a id="apiKeyHelp" target="_blank" rel="noopener">获取 →</a>
     </label>
-    <input type="password" id="apiKey" placeholder="sk-..." autocomplete="off">
+    <input type="password" id="apiKey" placeholder="sk-...">
   </div>
 
   <div class="field">
     <label>
       <span>模型</span>
-      <a href="#" id="manualEdit">手动输入</a>
+      <span id="modelCount" class="meta"></span>
     </label>
     <div class="row">
-      <input id="model" list="modelList" placeholder="选择或输入模型 ID" autocomplete="off">
-      <button class="icon-btn" id="fetchBtn" title="从供应商拉取模型列表">🔄 获取</button>
+      <select id="modelSelect"></select>
+      <input id="modelInput" placeholder="输入模型 ID" style="display:none">
+      <button class="icon-btn" id="modelToggleBtn" title="切换到手动输入">✏️</button>
+      <button class="icon-btn" id="fetchBtn" title="从供应商拉取模型列表">🔄</button>
     </div>
-    <datalist id="modelList"></datalist>
     <div class="meta" id="modelMeta"></div>
   </div>
 
@@ -163,7 +169,7 @@
 
   <div class="hint">
     选中文本 → 右键 → AI 助手 即可使用<br>
-    API Key 仅保存在本地浏览器
+    切换供应商/选择模型会自动保存，API Key 仅在本地
   </div>
 
   <script src="providers.js"></script>
