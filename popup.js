@@ -171,14 +171,22 @@ async function fetchModels(silent) {
   if (!silent) showStatus('正在从 ' + cfg.label + ' 拉取模型…', 'info');
 
   try {
-    const resp = await chrome.runtime.sendMessage({
-      type: 'AI_FETCH_MODELS',
-      payload: { provider, apiKey, customBaseUrl },
-    });
-    if (!resp?.ok) throw new Error(resp?.error || '未知错误');
-
-    const models = resp.models || [];
-    if (!models.length) throw new Error('返回空列表，请检查 API 地址');
+    let models;
+    try {
+      models = await fetchProviderModels({ provider, apiKey, customBaseUrl });
+    } catch (directErr) {
+      try {
+        const resp = await chrome.runtime.sendMessage({
+          type: 'AI_FETCH_MODELS',
+          payload: { provider, apiKey, customBaseUrl },
+        });
+        if (!resp?.ok) throw new Error(resp?.error || directErr.message);
+        models = resp.models;
+      } catch (bgErr) {
+        throw new Error(directErr.message);
+      }
+    }
+    if (!models?.length) throw new Error('返回空列表，请检查 API 地址');
 
     modelCache[provider] = { models, fetchedAt: Date.now() };
     await chrome.storage.local.set({ modelCache });
