@@ -79,8 +79,68 @@
       right: calc(3 * 38px + 2 * 6px);
       display: none;
     }
-    #modelRow.manual #modelSelect { visibility: hidden; }
+    #modelRow.manual #modelCS { visibility: hidden; }
     #modelRow.manual #modelInput { display: block; }
+
+    .custom-select { position: relative; flex: 1; min-width: 0; }
+    .cs-trigger {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 34px;
+      padding: 8px 10px;
+      padding-right: 30px;
+      border: 1px solid #45475a;
+      border-radius: 6px;
+      background: #181825;
+      color: #cdd6f4;
+      font-size: 13px;
+      cursor: pointer;
+      user-select: none;
+      outline: none;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2 4l4 4 4-4' stroke='%23cdd6f4' stroke-width='1.5' fill='none'/></svg>");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      overflow: hidden;
+    }
+    .cs-trigger:hover, .cs-trigger:focus { border-color: #cba6f7; }
+    .cs-text {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+      min-width: 0;
+    }
+    .cs-menu {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      right: 0;
+      margin: 0;
+      padding: 4px 0;
+      list-style: none;
+      max-height: 240px;
+      overflow-y: auto;
+      background: #181825;
+      border: 1px solid #45475a;
+      border-radius: 6px;
+      z-index: 1000;
+      display: none;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    }
+    .custom-select.open .cs-menu { display: block; }
+    .cs-item {
+      padding: 6px 12px;
+      cursor: pointer;
+      font-size: 13px;
+      color: #cdd6f4;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .cs-item:hover, .cs-item.active { background: #313244; color: #cba6f7; }
+    .cs-item.selected { color: #a6e3a1; }
+    .cs-item.selected::before { content: '✓ '; color: #a6e3a1; }
     .icon-btn {
       flex: 0 0 auto;
       min-width: 38px;
@@ -178,7 +238,12 @@
       <span id="modelCount" class="meta"></span>
     </label>
     <div class="row" id="modelRow">
-      <select id="modelSelect"></select>
+      <div class="custom-select" id="modelCS">
+        <div class="cs-trigger" id="modelTrigger" tabindex="0">
+          <span class="cs-text" id="modelTriggerText">—</span>
+        </div>
+        <ul class="cs-menu" id="modelMenu"></ul>
+      </div>
       <input id="modelInput" placeholder="输入模型 ID">
       <button class="icon-btn" id="modelToggleBtn" title="切换到手动输入">✏️</button>
       <button class="icon-btn" id="fetchBtn" title="从供应商拉取模型列表">🔄</button>

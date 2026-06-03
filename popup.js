@@ -4,7 +4,10 @@ const els = {
   apiKeyLabel: document.getElementById('apiKeyLabel'),
   apiKeyHelp: document.getElementById('apiKeyHelp'),
   toggleKeyBtn: document.getElementById('toggleKeyBtn'),
-  modelSelect: document.getElementById('modelSelect'),
+  modelCS: document.getElementById('modelCS'),
+  modelTrigger: document.getElementById('modelTrigger'),
+  modelTriggerText: document.getElementById('modelTriggerText'),
+  modelMenu: document.getElementById('modelMenu'),
   modelInput: document.getElementById('modelInput'),
   modelToggleBtn: document.getElementById('modelToggleBtn'),
   modelCount: document.getElementById('modelCount'),
@@ -18,6 +21,90 @@ const els = {
   saveBtn: document.getElementById('saveBtn'),
   status: document.getElementById('status'),
 };
+
+const modelCS = {
+  setOptions(list) {
+    els.modelMenu.innerHTML = '';
+    const frag = document.createDocumentFragment();
+    for (const id of list) {
+      const li = document.createElement('li');
+      li.className = 'cs-item';
+      li.textContent = id;
+      li.dataset.value = id;
+      frag.appendChild(li);
+    }
+    els.modelMenu.appendChild(frag);
+  },
+  setValue(v) {
+    els.modelMenu.querySelectorAll('.cs-item').forEach((x) => {
+      x.classList.toggle('selected', x.dataset.value === v);
+    });
+    els.modelTriggerText.textContent = v || '—';
+  },
+  getValue() {
+    const sel = els.modelMenu.querySelector('.cs-item.selected');
+    if (sel) return sel.dataset.value;
+    return els.modelTriggerText.textContent === '—' ? '' : els.modelTriggerText.textContent;
+  },
+  addOption(id) {
+    if (els.modelMenu.querySelector(`[data-value="${CSS.escape(id)}"]`)) return false;
+    const li = document.createElement('li');
+    li.className = 'cs-item';
+    li.textContent = id;
+    li.dataset.value = id;
+    els.modelMenu.appendChild(li);
+    return true;
+  },
+  open() { els.modelCS.classList.add('open'); },
+  close() { els.modelCS.classList.remove('open'); },
+  toggle() { els.modelCS.classList.toggle('open'); },
+  isOpen() { return els.modelCS.classList.contains('open'); },
+};
+
+els.modelTrigger.addEventListener('click', (e) => {
+  e.stopPropagation();
+  modelCS.toggle();
+});
+els.modelTrigger.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault();
+    modelCS.toggle();
+  } else if (e.key === 'Escape') {
+    modelCS.close();
+  } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (!modelCS.isOpen()) {
+      modelCS.open();
+      return;
+    }
+    const items = [...els.modelMenu.querySelectorAll('.cs-item')];
+    if (!items.length) return;
+    let idx = items.findIndex((x) => x.classList.contains('selected') || x.classList.contains('active'));
+    if (e.key === 'ArrowDown') idx = Math.min(items.length - 1, idx + 1);
+    else idx = Math.max(0, idx - 1);
+    if (idx < 0) idx = 0;
+    items.forEach((x) => x.classList.remove('active'));
+    items[idx].classList.add('active');
+    items[idx].scrollIntoView({ block: 'nearest' });
+  }
+});
+els.modelMenu.addEventListener('click', (e) => {
+  const item = e.target.closest('.cs-item');
+  if (!item) return;
+  modelCS.setValue(item.dataset.value);
+  modelCS.close();
+  persistAll();
+});
+els.modelMenu.addEventListener('mousemove', (e) => {
+  const item = e.target.closest('.cs-item');
+  if (!item) return;
+  els.modelMenu.querySelectorAll('.cs-item.active').forEach((x) => x.classList.remove('active'));
+  item.classList.add('active');
+});
+document.addEventListener('click', () => modelCS.close());
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') modelCS.close();
+});
 
 const STORAGE_DEFAULTS = {
   provider: 'openai',
@@ -149,14 +236,8 @@ function rememberModel(provider, model) {
     chrome.storage.local.set({ modelCache }).catch(() => {});
     if (state.provider === provider) {
       const all = cached.models;
-      const hasInDom = [...els.modelSelect.options].some(o => o.value === model);
-      if (!hasInDom) {
-        const opt = document.createElement('option');
-        opt.value = model;
-        opt.textContent = model;
-        els.modelSelect.appendChild(opt);
-        els.modelCount.textContent = '(' + all.length + ')';
-      }
+      const added = modelCS.addOption(model);
+      if (added) els.modelCount.textContent = '(' + all.length + ')';
     }
   }
 }
@@ -173,22 +254,16 @@ async function persistAll() {
 }
 
 function renderModels(models, selected) {
-  els.modelSelect.innerHTML = '';
-  for (const m of models) {
-    const opt = document.createElement('option');
-    opt.value = m;
-    opt.textContent = m;
-    els.modelSelect.appendChild(opt);
-  }
+  modelCS.setOptions(models);
   els.modelCount.textContent = models.length ? '(' + models.length + ')' : '';
 
   const target = selected && models.includes(selected) ? selected : (models[0] || '');
-  els.modelSelect.value = target;
+  modelCS.setValue(target);
   if (manualMode) els.modelInput.value = target;
 }
 
 function getCurrentModel() {
-  return manualMode ? els.modelInput.value.trim() : els.modelSelect.value;
+  return manualMode ? els.modelInput.value.trim() : modelCS.getValue();
 }
 
 function setManualMode(on) {
@@ -196,21 +271,20 @@ function setManualMode(on) {
   manualMode = on;
   document.getElementById('modelRow').classList.toggle('manual', on);
   if (on) {
-    els.modelInput.value = els.modelSelect.value;
+    els.modelInput.value = modelCS.getValue();
     els.modelToggleBtn.textContent = '📋';
     els.modelToggleBtn.title = '切换到下拉选择';
     els.modelToggleBtn.classList.add('active');
     els.modelInput.focus();
   } else {
     const val = els.modelInput.value.trim();
-    if (val && [...els.modelSelect.options].some(o => o.value === val)) {
-      els.modelSelect.value = val;
-    } else if (val) {
-      const opt = document.createElement('option');
-      opt.value = val;
-      opt.textContent = val + ' (自定义)';
-      els.modelSelect.appendChild(opt);
-      els.modelSelect.value = val;
+    if (val) {
+      if (modelCS.addOption(val)) {
+        // new option added; text already set in addOption
+      } else {
+        // option already existed, just mark selected
+      }
+      modelCS.setValue(val);
     }
     els.modelToggleBtn.textContent = '✏️';
     els.modelToggleBtn.title = '切换到手动输入';
@@ -241,7 +315,6 @@ els.resetBaseUrl.addEventListener('click', async (e) => {
 els.apiKey.addEventListener('input', () => scheduleAutoFetch());
 els.apiKey.addEventListener('blur', () => persistAll());
 
-els.modelSelect.addEventListener('change', () => persistAll());
 els.modelInput.addEventListener('input', () => {
   if (manualMode) persistAll();
 });
