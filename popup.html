@@ -141,6 +141,7 @@
     .cs-item:hover, .cs-item.active { background: #313244; color: #cba6f7; }
     .cs-item.selected { color: #a6e3a1; }
     .cs-item.selected::before { content: '✓ '; color: #a6e3a1; }
+    .cs-trigger.empty { color: #6c7086; }
     .icon-btn {
       flex: 0 0 auto;
       min-width: 38px;
@@ -209,7 +210,12 @@
 
   <div class="field">
     <label>AI 供应商</label>
-    <select id="provider"></select>
+    <div class="custom-select" id="providerCS">
+      <div class="cs-trigger" id="providerTrigger" tabindex="0">
+        <span class="cs-text" id="providerTriggerText">—</span>
+      </div>
+      <ul class="cs-menu" id="providerMenu"></ul>
+    </div>
   </div>
 
   <div class="field">

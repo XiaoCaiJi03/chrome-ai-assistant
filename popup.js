@@ -1,5 +1,4 @@
 const els = {
-  provider: document.getElementById('provider'),
   apiKey: document.getElementById('apiKey'),
   apiKeyLabel: document.getElementById('apiKeyLabel'),
   apiKeyHelp: document.getElementById('apiKeyHelp'),
@@ -22,88 +21,121 @@ const els = {
   status: document.getElementById('status'),
 };
 
-const modelCS = {
-  setOptions(list) {
-    els.modelMenu.innerHTML = '';
-    const frag = document.createDocumentFragment();
-    for (const id of list) {
+function createCustomSelect({ wrap, trigger, text, menu }) {
+  const api = {
+    setOptions(list) {
+      menu.innerHTML = '';
+      const frag = document.createDocumentFragment();
+      for (const [value, label] of list) {
+        const li = document.createElement('li');
+        li.className = 'cs-item';
+        li.textContent = label;
+        li.dataset.value = value;
+        frag.appendChild(li);
+      }
+      menu.appendChild(frag);
+    },
+    setValue(v) {
+      menu.querySelectorAll('.cs-item').forEach((x) => {
+        x.classList.toggle('selected', x.dataset.value === v);
+      });
+      const sel = menu.querySelector('.cs-item.selected');
+      text.textContent = sel ? sel.textContent : '—';
+    },
+    getValue() {
+      const sel = menu.querySelector('.cs-item.selected');
+      if (sel) return sel.dataset.value;
+      return text.textContent === '—' ? '' : text.textContent;
+    },
+    addOption(value, label) {
+      if (menu.querySelector(`[data-value="${CSS.escape(value)}"]`)) return false;
       const li = document.createElement('li');
       li.className = 'cs-item';
-      li.textContent = id;
-      li.dataset.value = id;
-      frag.appendChild(li);
+      li.textContent = label || value;
+      li.dataset.value = value;
+      menu.appendChild(li);
+      return true;
+    },
+    open() { wrap.classList.add('open'); },
+    close() { wrap.classList.remove('open'); },
+    toggle() { wrap.classList.toggle('open'); },
+    isOpen() { return wrap.classList.contains('open'); },
+  };
+
+  trigger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    api.toggle();
+  });
+  trigger.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      api.toggle();
+    } else if (e.key === 'Escape') {
+      api.close();
+    } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (!api.isOpen()) {
+        api.open();
+        return;
+      }
+      const items = [...menu.querySelectorAll('.cs-item')];
+      if (!items.length) return;
+      let idx = items.findIndex((x) => x.classList.contains('selected') || x.classList.contains('active'));
+      if (e.key === 'ArrowDown') idx = Math.min(items.length - 1, idx + 1);
+      else idx = Math.max(0, idx - 1);
+      if (idx < 0) idx = 0;
+      items.forEach((x) => x.classList.remove('active'));
+      items[idx].classList.add('active');
+      items[idx].scrollIntoView({ block: 'nearest' });
     }
-    els.modelMenu.appendChild(frag);
-  },
-  setValue(v) {
-    els.modelMenu.querySelectorAll('.cs-item').forEach((x) => {
-      x.classList.toggle('selected', x.dataset.value === v);
-    });
-    els.modelTriggerText.textContent = v || '—';
-  },
-  getValue() {
-    const sel = els.modelMenu.querySelector('.cs-item.selected');
-    if (sel) return sel.dataset.value;
-    return els.modelTriggerText.textContent === '—' ? '' : els.modelTriggerText.textContent;
-  },
-  addOption(id) {
-    if (els.modelMenu.querySelector(`[data-value="${CSS.escape(id)}"]`)) return false;
-    const li = document.createElement('li');
-    li.className = 'cs-item';
-    li.textContent = id;
-    li.dataset.value = id;
-    els.modelMenu.appendChild(li);
-    return true;
-  },
-  open() { els.modelCS.classList.add('open'); },
-  close() { els.modelCS.classList.remove('open'); },
-  toggle() { els.modelCS.classList.toggle('open'); },
-  isOpen() { return els.modelCS.classList.contains('open'); },
+  });
+  menu.addEventListener('click', (e) => {
+    const item = e.target.closest('.cs-item');
+    if (!item) return;
+    api.setValue(item.dataset.value);
+    api.close();
+    if (typeof api._onchange === 'function') api._onchange(item.dataset.value);
+  });
+  menu.addEventListener('mousemove', (e) => {
+    const item = e.target.closest('.cs-item');
+    if (!item) return;
+    menu.querySelectorAll('.cs-item.active').forEach((x) => x.classList.remove('active'));
+    item.classList.add('active');
+  });
+
+  return api;
+}
+
+const providerCS = createCustomSelect({
+  wrap: document.getElementById('providerCS'),
+  trigger: document.getElementById('providerTrigger'),
+  text: document.getElementById('providerTriggerText'),
+  menu: document.getElementById('providerMenu'),
+});
+providerCS._onchange = (v) => {
+  baseUrlEdited = false;
+  applyProvider(v);
+  persistAll();
+  scheduleAutoFetch();
 };
 
-els.modelTrigger.addEventListener('click', (e) => {
-  e.stopPropagation();
-  modelCS.toggle();
+const modelCS = createCustomSelect({
+  wrap: document.getElementById('modelCS'),
+  trigger: document.getElementById('modelTrigger'),
+  text: document.getElementById('modelTriggerText'),
+  menu: document.getElementById('modelMenu'),
 });
-els.modelTrigger.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' || e.key === ' ') {
-    e.preventDefault();
-    modelCS.toggle();
-  } else if (e.key === 'Escape') {
-    modelCS.close();
-  } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-    e.preventDefault();
-    if (!modelCS.isOpen()) {
-      modelCS.open();
-      return;
-    }
-    const items = [...els.modelMenu.querySelectorAll('.cs-item')];
-    if (!items.length) return;
-    let idx = items.findIndex((x) => x.classList.contains('selected') || x.classList.contains('active'));
-    if (e.key === 'ArrowDown') idx = Math.min(items.length - 1, idx + 1);
-    else idx = Math.max(0, idx - 1);
-    if (idx < 0) idx = 0;
-    items.forEach((x) => x.classList.remove('active'));
-    items[idx].classList.add('active');
-    items[idx].scrollIntoView({ block: 'nearest' });
-  }
-});
-els.modelMenu.addEventListener('click', (e) => {
-  const item = e.target.closest('.cs-item');
-  if (!item) return;
-  modelCS.setValue(item.dataset.value);
+modelCS._onchange = () => persistAll();
+
+document.addEventListener('click', () => {
+  providerCS.close();
   modelCS.close();
-  persistAll();
 });
-els.modelMenu.addEventListener('mousemove', (e) => {
-  const item = e.target.closest('.cs-item');
-  if (!item) return;
-  els.modelMenu.querySelectorAll('.cs-item.active').forEach((x) => x.classList.remove('active'));
-  item.classList.add('active');
-});
-document.addEventListener('click', () => modelCS.close());
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') modelCS.close();
+  if (e.key === 'Escape') {
+    providerCS.close();
+    modelCS.close();
+  }
 });
 
 const STORAGE_DEFAULTS = {
@@ -141,7 +173,7 @@ let autoFetchTimer = null;
   Object.assign(state, migrated);
 
   if (!(state.provider in AI_PROVIDERS)) state.provider = 'openai';
-  els.provider.value = state.provider;
+  providerCS.setValue(state.provider);
   els.customPrompt.value = state.customPrompt;
 
   loadProviderIntoUI(state.provider);
@@ -153,13 +185,8 @@ let autoFetchTimer = null;
 })();
 
 function populateProviders() {
-  els.provider.innerHTML = '';
-  for (const [key, cfg] of Object.entries(AI_PROVIDERS)) {
-    const opt = document.createElement('option');
-    opt.value = key;
-    opt.textContent = cfg.label;
-    els.provider.appendChild(opt);
-  }
+  const list = Object.entries(AI_PROVIDERS).map(([k, c]) => [k, c.label]);
+  providerCS.setOptions(list);
 }
 
 function loadProviderIntoUI(providerKey) {
@@ -292,14 +319,6 @@ function setManualMode(on) {
   }
   persistAll();
 }
-
-els.provider.addEventListener('change', async () => {
-  captureUIIntoState();
-  state.provider = els.provider.value;
-  loadProviderIntoUI(state.provider);
-  await persistAll();
-  scheduleAutoFetch();
-});
 
 els.customBaseUrl.addEventListener('blur', () => persistAll());
 els.customBaseUrl.addEventListener('input', () => scheduleAutoFetch());
