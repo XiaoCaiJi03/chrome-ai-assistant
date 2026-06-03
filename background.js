@@ -1,9 +1,10 @@
+importScripts('providers.js');
+
 const MENU_ACTIONS = {
   SUMMARIZE: 'ai-summarize',
   TRANSLATE: 'ai-translate',
   EXPLAIN: 'ai-explain',
   CUSTOM: 'ai-custom',
-  PROMPT: 'ai-prompt',
 };
 
 const SYSTEM_PROMPTS = {
@@ -13,64 +14,45 @@ const SYSTEM_PROMPTS = {
   [MENU_ACTIONS.CUSTOM]: '',
 };
 
-const PROVIDERS = {
-  openai: {
-    name: 'OpenAI',
-    baseUrl: 'https://api.openai.com/v1/chat/completions',
-    models: ['gpt-4o-mini', 'gpt-4o', 'gpt-4.1-nano', 'gpt-4.1-mini', 'o3-mini'],
-    defaultModel: 'gpt-4o-mini',
-  },
-  deepseek: {
-    name: 'DeepSeek',
-    baseUrl: 'https://api.deepseek.com/v1/chat/completions',
-    models: ['deepseek-chat', 'deepseek-reasoner'],
-    defaultModel: 'deepseek-chat',
-  },
-  minimax: {
-    name: 'MiniMax',
-    baseUrl: 'https://api.minimaxi.com/v1/openai/chat/completions',
-    models: ['MiniMax-Text-01', 'MiniMax-M2.5-7B'],
-    defaultModel: 'MiniMax-Text-01',
-  },
-};
-
 chrome.runtime.onInstalled.addListener(() => {
   createContextMenus();
 });
 
+chrome.runtime.onStartup.addListener(() => {
+  createContextMenus();
+});
+
 function createContextMenus() {
-  chrome.contextMenus.create({
-    id: 'ai-parent',
-    title: 'AI 助手',
-    contexts: ['selection'],
-  });
-
-  chrome.contextMenus.create({
-    id: MENU_ACTIONS.SUMMARIZE,
-    parentId: 'ai-parent',
-    title: '📝 总结',
-    contexts: ['selection'],
-  });
-
-  chrome.contextMenus.create({
-    id: MENU_ACTIONS.TRANSLATE,
-    parentId: 'ai-parent',
-    title: '🌐 翻译成中文',
-    contexts: ['selection'],
-  });
-
-  chrome.contextMenus.create({
-    id: MENU_ACTIONS.EXPLAIN,
-    parentId: 'ai-parent',
-    title: '💡 解释说明',
-    contexts: ['selection'],
-  });
-
-  chrome.contextMenus.create({
-    id: MENU_ACTIONS.CUSTOM,
-    parentId: 'ai-parent',
-    title: '⚡ 自定义提示词',
-    contexts: ['selection'],
+  chrome.contextMenus.removeAll(() => {
+    chrome.contextMenus.create({
+      id: 'ai-parent',
+      title: 'AI 助手',
+      contexts: ['selection'],
+    });
+    chrome.contextMenus.create({
+      id: MENU_ACTIONS.SUMMARIZE,
+      parentId: 'ai-parent',
+      title: '📝 总结',
+      contexts: ['selection'],
+    });
+    chrome.contextMenus.create({
+      id: MENU_ACTIONS.TRANSLATE,
+      parentId: 'ai-parent',
+      title: '🌐 翻译成中文',
+      contexts: ['selection'],
+    });
+    chrome.contextMenus.create({
+      id: MENU_ACTIONS.EXPLAIN,
+      parentId: 'ai-parent',
+      title: '💡 解释说明',
+      contexts: ['selection'],
+    });
+    chrome.contextMenus.create({
+      id: MENU_ACTIONS.CUSTOM,
+      parentId: 'ai-parent',
+      title: '⚡ 自定义提示词',
+      contexts: ['selection'],
+    });
   });
 }
 
@@ -78,7 +60,6 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   const { menuItemId, selectionText } = info;
   if (!selectionText || !tab?.id) return;
 
-  // Inject content script FIRST so it can receive messages
   try {
     await ensureContentScript(tab.id);
   } catch {
@@ -101,17 +82,20 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     customBaseUrl: '',
   });
 
-  if (!settings.apiKey) {
+  const cfg = AI_PROVIDERS[settings.provider];
+  if (!cfg) {
+    sendToTab(tab.id, { type: 'AI_ERROR', error: '未知供应商，请在扩展设置中重新选择' });
+    return;
+  }
+  if (!settings.apiKey && !cfg.keyOptional) {
     sendToTab(tab.id, { type: 'AI_ERROR', error: '请先设置 API Key（点击扩展图标）' });
     return;
   }
 
-  let systemPrompt = '';
-  if (menuItemId === MENU_ACTIONS.CUSTOM) {
-    systemPrompt = settings.customPrompt || '请处理以下内容：\n\n';
-  } else {
-    systemPrompt = SYSTEM_PROMPTS[menuItemId] || '请处理以下内容：\n\n';
-  }
+  const systemPrompt =
+    menuItemId === MENU_ACTIONS.CUSTOM
+      ? settings.customPrompt || '请处理以下内容：\n\n'
+      : SYSTEM_PROMPTS[menuItemId] || '请处理以下内容：\n\n';
 
   sendToTab(tab.id, { type: 'AI_LOADING' });
 
@@ -120,6 +104,15 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     sendToTab(tab.id, { type: 'AI_RESULT', result, action: menuItemId });
   } catch (err) {
     sendToTab(tab.id, { type: 'AI_ERROR', error: err.message });
+  }
+});
+
+chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  if (msg?.type === 'AI_FETCH_MODELS') {
+    fetchProviderModels(msg.payload)
+      .then((models) => sendResponse({ ok: true, models }))
+      .catch((err) => sendResponse({ ok: false, error: err.message }));
+    return true;
   }
 });
 
@@ -139,28 +132,81 @@ function sendToTab(tabId, msg) {
 }
 
 async function callAI(settings, prompt) {
-  const provider = PROVIDERS[settings.provider];
-  const baseUrl = settings.customBaseUrl || provider.baseUrl;
+  const cfg = AI_PROVIDERS[settings.provider];
+  const base = (settings.customBaseUrl || cfg.baseUrl || '').trim();
+  if (!base) throw new Error('请在设置中填写 API 地址');
 
-  const resp = await fetch(baseUrl, {
+  const url = joinUrl(base, cfg.chatPath);
+
+  if (cfg.protocol === 'anthropic') {
+    return callAnthropic(url, settings, cfg, prompt);
+  }
+  return callOpenAICompatible(url, settings, cfg, prompt);
+}
+
+async function callOpenAICompatible(url, settings, cfg, prompt) {
+  const headers = {
+    'Content-Type': 'application/json',
+    ...buildAuthHeaders(cfg.protocol, settings.apiKey),
+  };
+
+  const body = {
+    model: settings.model,
+    messages: [{ role: 'user', content: prompt }],
+    temperature: settings.temperature,
+    max_tokens: settings.maxTokens,
+  };
+
+  const resp = await fetch(url, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${settings.apiKey}`,
-    },
-    body: JSON.stringify({
-      model: settings.model,
-      messages: [{ role: 'user', content: prompt }],
-      temperature: settings.temperature,
-      max_tokens: settings.maxTokens,
-    }),
+    headers,
+    body: JSON.stringify(body),
   });
 
   if (!resp.ok) {
     const err = await resp.json().catch(() => ({}));
-    throw new Error(err.error?.message || `API Error: ${resp.status}`);
+    throw new Error(err.error?.message || err.message || `API Error: ${resp.status}`);
   }
 
   const data = await resp.json();
-  return data.choices[0].message.content;
+  const content =
+    data.choices?.[0]?.message?.content ||
+    data.choices?.[0]?.text ||
+    data.message?.content ||
+    data.output_text;
+  if (!content) throw new Error('API 返回为空');
+  return content;
+}
+
+async function callAnthropic(url, settings, cfg, prompt) {
+  const headers = {
+    'Content-Type': 'application/json',
+    ...buildAuthHeaders(cfg.protocol, settings.apiKey),
+  };
+
+  const body = {
+    model: settings.model,
+    max_tokens: settings.maxTokens,
+    temperature: settings.temperature,
+    messages: [{ role: 'user', content: prompt }],
+  };
+
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+  });
+
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    throw new Error(err.error?.message || err.message || `API Error: ${resp.status}`);
+  }
+
+  const data = await resp.json();
+  const text = (data.content || [])
+    .filter((b) => b.type === 'text')
+    .map((b) => b.text)
+    .join('\n');
+  if (!text) throw new Error('Anthropic 返回为空');
+  return text;
 }

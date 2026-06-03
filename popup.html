@@ -7,7 +7,7 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      width: 360px;
+      width: 380px;
       background: #1e1e2e;
       color: #cdd6f4;
       font: 14px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -23,11 +23,19 @@
     }
     .field { margin-bottom: 12px; }
     label {
-      display: block;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
       font-size: 12px;
       color: #a6adc8;
       margin-bottom: 4px;
     }
+    label a {
+      color: #89b4fa;
+      text-decoration: none;
+      font-size: 11px;
+    }
+    label a:hover { text-decoration: underline; }
     input, select, textarea {
       width: 100%;
       padding: 8px 10px;
@@ -37,20 +45,48 @@
       color: #cdd6f4;
       font-size: 13px;
       outline: none;
+      font-family: inherit;
     }
     input:focus, select:focus, textarea:focus {
       border-color: #cba6f7;
     }
-    textarea { resize: vertical; min-height: 60px; font-family: inherit; }
+    textarea { resize: vertical; min-height: 60px; }
+    .row {
+      display: flex;
+      gap: 8px;
+      align-items: stretch;
+    }
+    .row input { flex: 1; }
+    .icon-btn {
+      flex: 0 0 auto;
+      padding: 0 12px;
+      border: 1px solid #45475a;
+      border-radius: 6px;
+      background: #313244;
+      color: #cdd6f4;
+      font-size: 12px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .icon-btn:hover:not(:disabled) { background: #45475a; border-color: #cba6f7; }
+    .icon-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .icon-btn.spin::before {
+      content: '⏳';
+      display: inline-block;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
     .status {
       padding: 8px 12px;
       border-radius: 6px;
       font-size: 12px;
       margin-bottom: 12px;
       display: none;
+      word-break: break-word;
     }
     .status.success { display: block; background: #1e3a2f; color: #a6e3a1; border: 1px solid #2e5a3f; }
     .status.error { display: block; background: #3a1e1e; color: #f38ba8; border: 1px solid #5a2e2e; }
+    .status.info { display: block; background: #1e2a3a; color: #89b4fa; border: 1px solid #2e3f5a; }
     .btn {
       width: 100%;
       padding: 10px;
@@ -68,8 +104,14 @@
       color: #6c7086;
       margin-top: 12px;
       text-align: center;
+      line-height: 1.5;
     }
-    .custom-endpoint { display: none; }
+    .hint a { color: #89b4fa; text-decoration: none; }
+    .meta {
+      font-size: 11px;
+      color: #6c7086;
+      margin-top: 4px;
+    }
   </style>
 </head>
 <body>
@@ -79,40 +121,52 @@
 
   <div class="field">
     <label>AI 供应商</label>
-    <select id="provider">
-      <option value="openai">OpenAI</option>
-      <option value="deepseek">DeepSeek</option>
-      <option value="minimax">MiniMax</option>
-    </select>
-  </div>
-
-  <div class="field custom-endpoint" id="customEndpointField">
-    <label>自定义 API 地址</label>
-    <input type="url" id="customBaseUrl" placeholder="https://your-api.com/v1/chat/completions">
+    <select id="provider"></select>
   </div>
 
   <div class="field">
-    <label id="apiKeyLabel">API Key</label>
+    <label>
+      <span>API 地址</span>
+      <a href="#" id="resetBaseUrl">恢复默认</a>
+    </label>
+    <input type="url" id="customBaseUrl" placeholder="https://api.example.com/v1" autocomplete="off">
+    <div class="meta" id="baseUrlMeta">将自动拼接 /chat/completions 与 /models</div>
+  </div>
+
+  <div class="field">
+    <label>
+      <span id="apiKeyLabel">API Key</span>
+      <a href="#" id="apiKeyHelp" target="_blank" rel="noopener">获取 →</a>
+    </label>
     <input type="password" id="apiKey" placeholder="sk-..." autocomplete="off">
   </div>
 
   <div class="field">
-    <label>模型</label>
-    <select id="model"></select>
+    <label>
+      <span>模型</span>
+      <a href="#" id="manualEdit">手动输入</a>
+    </label>
+    <div class="row">
+      <input id="model" list="modelList" placeholder="选择或输入模型 ID" autocomplete="off">
+      <button class="icon-btn" id="fetchBtn" title="从供应商拉取模型列表">🔄 获取</button>
+    </div>
+    <datalist id="modelList"></datalist>
+    <div class="meta" id="modelMeta"></div>
   </div>
 
   <div class="field">
     <label>自定义默认提示词（用于"自定义提示词"菜单）</label>
-    <textarea id="customPrompt" placeholder="例如：请将以下内容改写为更正式的学术风格：\n\n"></textarea>
+    <textarea id="customPrompt" placeholder="例如：请将以下内容改写为更正式的学术风格："></textarea>
   </div>
 
   <button class="btn" id="saveBtn">保存设置</button>
 
   <div class="hint">
     选中文本 → 右键 → AI 助手 即可使用<br>
-    API Key 仅存储在本地浏览器
+    API Key 仅保存在本地浏览器
   </div>
 
+  <script src="providers.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>
