@@ -68,6 +68,7 @@
     .row > select, .row > input { flex: 1; min-width: 0; }
     .icon-btn {
       flex: 0 0 auto;
+      min-width: 38px;
       padding: 0 10px;
       border: 1px solid #45475a;
       border-radius: 6px;
@@ -76,6 +77,7 @@
       font-size: 12px;
       cursor: pointer;
       white-space: nowrap;
+      text-align: center;
     }
     .icon-btn:hover:not(:disabled) { background: #45475a; border-color: #cba6f7; }
     .icon-btn:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -85,12 +87,17 @@
       border-radius: 6px;
       font-size: 12px;
       margin-bottom: 12px;
-      display: none;
+      min-height: 34px;
+      background: transparent;
+      border: 1px solid transparent;
+      color: transparent;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
       word-break: break-word;
     }
-    .status.success { display: block; background: #1e3a2f; color: #a6e3a1; border: 1px solid #2e5a3f; }
-    .status.error { display: block; background: #3a1e1e; color: #f38ba8; border: 1px solid #5a2e2e; }
-    .status.info { display: block; background: #1e2a3a; color: #89b4fa; border: 1px solid #2e3f5a; }
+    .status:empty::before { content: '\00a0'; }
+    .status.success { background: #1e3a2f; color: #a6e3a1; border-color: #2e5a3f; }
+    .status.error { background: #3a1e1e; color: #f38ba8; border-color: #5a2e2e; }
+    .status.info { background: #1e2a3a; color: #89b4fa; border-color: #2e3f5a; }
     .btn {
       width: 100%;
       padding: 10px;
