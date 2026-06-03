@@ -1,8 +1,11 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-<head>
+  <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title>AI Assistant Settings</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -265,12 +268,17 @@
 
   <button class="btn" id="saveBtn">保存设置</button>
 
-  <div class="hint">
-    选中文本 → 右键 → AI 助手 即可使用<br>
-    切换供应商/选择模型会自动保存，API Key 仅在本地
-  </div>
+    <div class="hint">
+      选中文本 → 右键 → AI 助手 即可使用<br>
+      切换供应商/选择模型会自动保存，API Key 仅在本地<br>
+      <span id="buildId" class="meta"></span>
+    </div>
 
-  <script src="providers.js"></script>
-  <script src="popup.js"></script>
+    <script>
+      // Visible build tag to disambiguate stale error panels
+      document.getElementById('buildId').textContent = 'build: ' + (new Date(document.lastModified).toISOString().slice(0, 16).replace('T', ' '));
+    </script>
+    <script src="providers.js"></script>
+    <script src="popup.js"></script>
 </body>
 </html>

@@ -21,6 +21,19 @@ const els = {
   status: document.getElementById('status'),
 };
 
+window.addEventListener('error', (e) => {
+  if (els && els.status) {
+    els.status.textContent = '❌ ' + (e.error?.message || e.message);
+    els.status.className = 'status error';
+  }
+});
+window.addEventListener('unhandledrejection', (e) => {
+  if (els && els.status) {
+    els.status.textContent = '❌ ' + (e.reason?.message || e.reason);
+    els.status.className = 'status error';
+  }
+});
+
 function createCustomSelect({ wrap, trigger, text, menu }) {
   const api = {
     setOptions(list) {
