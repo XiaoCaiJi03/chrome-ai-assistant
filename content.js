@@ -1,4 +1,4 @@
-(function () {
+﻿(function () {
   if (document.getElementById('ai-assistant-root')) return;
 
   const root = document.createElement('div');
@@ -10,31 +10,65 @@
     :host { all: initial; }
     .ai-overlay {
       position: fixed; bottom: 24px; right: 24px; z-index: 2147483647;
-      width: 440px; max-height: 480px; overflow-y: auto;
-      background: #1e1e2e; color: #cdd6f4;
-      border-radius: 12px; padding: 0;
+      width: 440px;
+      height: min(560px, calc(100vh - 48px));
+      background: rgba(30, 30, 46, 0.85);
+      backdrop-filter: blur(22px) saturate(180%);
+      -webkit-backdrop-filter: blur(22px) saturate(180%);
+      color: #cdd6f4;
+      border-radius: 12px;
+      padding: 0;
       font: 14px/1.7 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.45);
-      border: 1px solid #313244;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+      border: 1px solid rgba(203, 166, 247, 0.15);
       display: none;
+      flex-direction: column;
+      overflow: hidden;
     }
     .ai-header {
+      flex: 0 0 auto;
       display: flex; align-items: center; justify-content: space-between;
       padding: 12px 16px;
-      background: #181825; border-radius: 12px 12px 0 0;
-      border-bottom: 1px solid #313244;
+      background: rgba(24, 24, 37, 0.65);
+      border-bottom: 1px solid rgba(203, 166, 247, 0.12);
       cursor: move; user-select: none;
+      z-index: 1;
     }
     .ai-header-title {
       font-weight: 600; font-size: 13px; color: #cba6f7;
+      display: inline-flex; align-items: center; gap: 8px;
+    }
+    .ai-header-title::before {
+      content: ''; width: 6px; height: 6px; border-radius: 50%;
+      background: #cba6f7; box-shadow: 0 0 8px #cba6f7;
+      animation: ai-pulse 2.4s ease-in-out infinite;
+    }
+    @keyframes ai-pulse {
+      0%, 100% { opacity: 0.4; transform: scale(0.85); }
+      50% { opacity: 1; transform: scale(1.1); }
     }
     .ai-close {
       border: none; background: none; color: #6c7086;
       cursor: pointer; font-size: 18px; padding: 0 4px;
       line-height: 1;
+      transition: color 0.15s;
     }
     .ai-close:hover { color: #f38ba8; }
-    .ai-body { padding: 16px; }
+    .ai-body {
+      flex: 1 1 auto;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 16px;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(203, 166, 247, 0.3) transparent;
+    }
+    .ai-body::-webkit-scrollbar { width: 6px; }
+    .ai-body::-webkit-scrollbar-track { background: transparent; }
+    .ai-body::-webkit-scrollbar-thumb {
+      background: rgba(203, 166, 247, 0.25);
+      border-radius: 3px;
+    }
+    .ai-body::-webkit-scrollbar-thumb:hover { background: rgba(203, 166, 247, 0.45); }
     .ai-loading {
       display: flex; align-items: center; gap: 10px;
       color: #a6adc8;
@@ -48,14 +82,17 @@
     .ai-result { white-space: pre-wrap; word-break: break-word; }
     .ai-error { color: #f38ba8; }
     .ai-footer {
+      flex: 0 0 auto;
       padding: 8px 16px;
-      border-top: 1px solid #313244;
+      border-top: 1px solid rgba(203, 166, 247, 0.12);
+      background: rgba(24, 24, 37, 0.65);
       display: flex; gap: 8px; justify-content: flex-end;
     }
     .ai-btn {
       border: none; border-radius: 6px; padding: 4px 12px;
       font-size: 12px; cursor: pointer;
       background: #313244; color: #cdd6f4;
+      transition: background 0.15s, filter 0.15s;
     }
     .ai-btn:hover { background: #45475a; }
     .ai-btn-copy { background: #a6e3a1; color: #1e1e2e; }
@@ -65,6 +102,7 @@
 
   const overlay = document.createElement('div');
   overlay.className = 'ai-overlay';
+  overlay.style.display = 'none';
   root.shadowRoot.appendChild(overlay);
   document.body.appendChild(root);
 
@@ -83,7 +121,7 @@
         </div>
       </div>
     `;
-    overlay.style.display = 'block';
+    overlay.style.display = 'flex';
     bindHeaderEvents();
     bindClose();
   }
@@ -102,7 +140,7 @@
         <button class="ai-btn" id="aiCloseBtn2">关闭</button>
       </div>
     `;
-    overlay.style.display = 'block';
+    overlay.style.display = 'flex';
     bindHeaderEvents();
     bindClose();
     const copyBtn = overlay.querySelector('#aiCopyBtn');
@@ -130,7 +168,7 @@
         <button class="ai-btn" id="aiCloseBtn2">关闭</button>
       </div>
     `;
-    overlay.style.display = 'block';
+    overlay.style.display = 'flex';
     bindHeaderEvents();
     bindClose();
   }
