@@ -3,6 +3,7 @@ const els = {
   apiKey: document.getElementById('apiKey'),
   apiKeyLabel: document.getElementById('apiKeyLabel'),
   apiKeyHelp: document.getElementById('apiKeyHelp'),
+  toggleKeyBtn: document.getElementById('toggleKeyBtn'),
   modelSelect: document.getElementById('modelSelect'),
   modelInput: document.getElementById('modelInput'),
   modelToggleBtn: document.getElementById('modelToggleBtn'),
@@ -13,6 +14,7 @@ const els = {
   resetBaseUrl: document.getElementById('resetBaseUrl'),
   customPrompt: document.getElementById('customPrompt'),
   fetchBtn: document.getElementById('fetchBtn'),
+  verifyBtn: document.getElementById('verifyBtn'),
   saveBtn: document.getElementById('saveBtn'),
   status: document.getElementById('status'),
 };
@@ -250,7 +252,16 @@ els.customPrompt.addEventListener('blur', () => persistAll());
 
 els.modelToggleBtn.addEventListener('click', () => setManualMode(!manualMode));
 
+els.toggleKeyBtn.addEventListener('click', () => {
+  const isHidden = els.apiKey.type === 'password';
+  els.apiKey.type = isHidden ? 'text' : 'password';
+  els.toggleKeyBtn.textContent = isHidden ? '🙈' : '👁';
+  els.toggleKeyBtn.title = isHidden ? '隐藏' : '显示';
+});
+
 els.fetchBtn.addEventListener('click', () => fetchModels(false));
+
+els.verifyBtn.addEventListener('click', () => verifyModel(false));
 
 els.saveBtn.addEventListener('click', async () => {
   const provider = state.provider;
@@ -351,5 +362,48 @@ function showStatus(msg, type) {
       els.status.className = 'status';
       els.status.textContent = '';
     }, 3500);
+  }
+}
+
+async function verifyModel(silent) {
+  const provider = state.provider;
+  const cfg = AI_PROVIDERS[provider];
+  const apiKey = els.apiKey.value.trim();
+  const model = getCurrentModel();
+  const customBaseUrl = els.customBaseUrl.value.trim();
+
+  if (!apiKey && !cfg.keyOptional) {
+    if (!silent) showStatus('请先填写 API Key', 'error');
+    return;
+  }
+  if (!customBaseUrl) {
+    if (!silent) showStatus('请先填写 API 地址', 'error');
+    return;
+  }
+  if (!model) {
+    if (!silent) showStatus('请先选择或输入模型', 'error');
+    return;
+  }
+
+  els.verifyBtn.disabled = true;
+  els.verifyBtn.textContent = '…';
+  if (!silent) showStatus('正在验证 ' + cfg.label + ' / ' + model + ' …', 'info');
+
+  try {
+    const resp = await chrome.runtime.sendMessage({
+      type: 'AI_VERIFY_MODEL',
+      payload: { provider, apiKey, model, customBaseUrl },
+    });
+    if (!resp?.ok) throw new Error(resp?.error || '未知错误');
+    els.modelMeta.textContent = '✓ ' + model + ' 可用 · ' + cfg.label;
+    els.modelMeta.className = 'meta ok';
+    showStatus('✅ ' + cfg.label + ' / ' + model + ' 验证通过', 'success');
+  } catch (err) {
+    els.modelMeta.textContent = '✗ ' + (err.message || '不可用') + ' · ' + model;
+    els.modelMeta.className = 'meta err';
+    showStatus('❌ 验证失败：' + (err.message || '未知错误'), 'error');
+  } finally {
+    els.verifyBtn.disabled = false;
+    els.verifyBtn.textContent = '✓';
   }
 }

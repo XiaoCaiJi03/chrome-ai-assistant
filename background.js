@@ -140,6 +140,23 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       .catch((err) => sendResponse({ ok: false, error: err.message }));
     return true;
   }
+  if (msg?.type === 'AI_VERIFY_MODEL') {
+    const p = msg.payload || {};
+    const cfg = AI_PROVIDERS[p.provider];
+    if (!cfg) return sendResponse({ ok: false, error: '未知供应商' });
+    const resolved = {
+      provider: p.provider,
+      apiKey: p.apiKey,
+      model: p.model,
+      customBaseUrl: p.customBaseUrl,
+      temperature: 0,
+      maxTokens: 1,
+    };
+    callAI(resolved, 'ping')
+      .then(() => sendResponse({ ok: true }))
+      .catch((err) => sendResponse({ ok: false, error: err.message || String(err) }));
+    return true;
+  }
 });
 
 async function ensureContentScript(tabId) {
@@ -181,6 +198,7 @@ async function callOpenAICompatible(url, settings, cfg, prompt) {
     messages: [{ role: 'user', content: prompt }],
     temperature: settings.temperature,
     max_tokens: settings.maxTokens,
+    max_completion_tokens: settings.maxTokens,
   };
 
   const resp = await fetch(url, {

@@ -66,7 +66,7 @@ const AI_PROVIDERS = {
     apiKeyPlaceholder: '输入 MiniMax Group Token',
     apiKeyUrl: 'https://platform.minimaxi.com/user-center/basic-information/interface-key',
     baseUrl: 'https://api.minimaxi.com/v1',
-    chatPath: '/openai/chat/completions',
+    chatPath: '/chat/completions',
     modelsPath: '/models',
     protocol: 'openai',
     defaultModels: ['MiniMax-M3', 'MiniMax-M2.7', 'MiniMax-M2.5'],

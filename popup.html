@@ -150,7 +150,10 @@
       <span id="apiKeyLabel">API Key</span>
       <a id="apiKeyHelp" target="_blank" rel="noopener">获取 →</a>
     </label>
-    <input type="password" id="apiKey" placeholder="sk-...">
+    <div class="row">
+      <input type="password" id="apiKey" placeholder="sk-...">
+      <button class="icon-btn" id="toggleKeyBtn" title="显示/隐藏">👁</button>
+    </div>
   </div>
 
   <div class="field">
@@ -163,6 +166,7 @@
       <input id="modelInput" placeholder="输入模型 ID" style="display:none">
       <button class="icon-btn" id="modelToggleBtn" title="切换到手动输入">✏️</button>
       <button class="icon-btn" id="fetchBtn" title="从供应商拉取模型列表">🔄</button>
+      <button class="icon-btn" id="verifyBtn" title="测试当前 Key + 模型是否可用">✓</button>
     </div>
     <div class="meta" id="modelMeta"></div>
   </div>
