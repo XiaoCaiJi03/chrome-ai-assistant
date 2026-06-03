@@ -120,7 +120,10 @@ function captureUIIntoState() {
   if (apiKey) state.apiKeys[provider] = apiKey;
   else delete state.apiKeys[provider];
 
-  if (model) state.models[provider] = model;
+  if (model) {
+    state.models[provider] = model;
+    rememberModel(provider, model);
+  }
 
   if (customBaseUrl && customBaseUrl !== AI_PROVIDERS[provider]?.baseUrl) {
     state.customBaseUrls[provider] = customBaseUrl;
@@ -129,6 +132,31 @@ function captureUIIntoState() {
   }
 
   state.customPrompt = els.customPrompt.value.trim();
+}
+
+function rememberModel(provider, model) {
+  if (!model) return;
+  const cfg = AI_PROVIDERS[provider];
+  let cached = modelCache[provider];
+  if (!cached) {
+    cached = { models: [...(cfg?.defaultModels || [])], fetchedAt: 0 };
+    modelCache[provider] = cached;
+  }
+  if (!cached.models.includes(model)) {
+    cached.models = [...cached.models, model].sort();
+    chrome.storage.local.set({ modelCache }).catch(() => {});
+    if (state.provider === provider) {
+      const all = cached.models;
+      const hasInDom = [...els.modelSelect.options].some(o => o.value === model);
+      if (!hasInDom) {
+        const opt = document.createElement('option');
+        opt.value = model;
+        opt.textContent = model;
+        els.modelSelect.appendChild(opt);
+        els.modelCount.textContent = '(' + all.length + ')';
+      }
+    }
+  }
 }
 
 async function persistAll() {
